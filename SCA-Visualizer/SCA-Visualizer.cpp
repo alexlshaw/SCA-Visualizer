@@ -5,6 +5,7 @@
 #include "GLFW/glfw3.h"
 #include "glm/glm.hpp"
 #include "glm\gtc\matrix_transform.hpp"
+#include "time.h"
 #include <iostream>
 #include <vector>
 #include "RoadNetwork.h"
@@ -17,8 +18,6 @@ int screenWidth = 1024, screenHeight = 768;
 
 Shader* basic = nullptr;
 int uProjMatrix, uModelMatrix;
-GLuint vbo, vao, ibo;
-int indexCount;
 
 RoadNetwork* network;
 
@@ -107,35 +106,6 @@ void draw()
 	glfwSwapBuffers(mainWindow);
 }
 
-void createNetworkMesh()
-{
-	std::vector<Vertex> vertices;
-	std::vector<int> indices;
-	glm::vec4 nCol = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);		
-	vertices.push_back(Vertex(glm::vec4(-100.0f, -100.0f, 0.0f, 1.0f), nCol));
-	vertices.push_back(Vertex(glm::vec4(100.0f, 100.0f, 0.0f, 1.0f), nCol));
-	//vertices.push_back(Vertex(glm::vec4(-100.0f, 100.0f, 0.0f, 1.0f), nCol));
-	indices.push_back(0);
-	indices.push_back(1);
-	//indices.push_back(2);
-	indexCount = indices.size();
-	glGenVertexArrays(1, &vao);
-	glGenBuffers(1, &vbo);
-	glBindVertexArray(vao);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * vertices.size(), &vertices[0], GL_STATIC_DRAW);
-	//position
-	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)0);
-	glEnableVertexAttribArray(0);
-	//color
-	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)16);
-	glEnableVertexAttribArray(1);
-	glGenBuffers(1, &ibo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * indices.size(), &indices[0], GL_STATIC_DRAW);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-}
-
 void exit()
 {
 	delete network;
@@ -152,8 +122,11 @@ int main()
 		return -1;
 	}
 	init_GL();
-	//createNetworkMesh();
+	srand((unsigned int)(time(NULL)));
+	int sTime = time(NULL);
 	network = new RoadNetwork();
+	int tTime = time(NULL) - sTime;
+	printf("Generation time: %i\n", tTime);
 	/* Loop until the user closes the window */
 	while (!shouldExit && !glfwWindowShouldClose(mainWindow))
 	{
