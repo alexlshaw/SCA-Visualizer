@@ -19,23 +19,32 @@ RoadNetwork::~RoadNetwork()
 	glDeleteBuffers(1, &aibo);
 }
 
+void RoadNetwork::PickStartingSegments()
+{
+	for (int i = 0; i < startingSegmentCount; i++)
+	{
+		int idx = rand() % attractionPointCount;
+		//starting segments are 0-length
+		Segment* base = new Segment(attractionPoints[idx].location, attractionPoints[idx].location);
+		base->parent = nullptr;
+		segments.push_back(base);
+	}
+}
+
 void RoadNetwork::GenerateNetwork()
 {
 	SetInitialAttractionPoints();
-
-	std::deque<Segment*> segs;
-	Segment* base = new Segment(glm::vec2(0.0f, 0.0f), glm::vec2(10.0f, 10.0f));
-	base->parent = nullptr;
-	segs.push_back(base);
+	PickStartingSegments();
+	
 	int remainingAttractionPoints = attractionPointCount;
 	int remainingAttractionPointsAtLastIter = remainingAttractionPoints;
-
+	int noProgressCount = 0;
 	//generate initial closeness network
 	for (auto& point : attractionPoints)
 	{
 		Segment* closest = nullptr;
 		float closestDistance = 99999999.9f;	//arbitrarily large
-		for (auto& seg : segs)
+		for (auto& seg : segments)
 		{
 			float currentDistance = glm::length(point.location - seg->end);
 			if (currentDistance < closestDistance)
@@ -52,7 +61,7 @@ void RoadNetwork::GenerateNetwork()
 	std::deque<Segment*> segmentsAddedInLastRound;
 
 	//build segments until we have connected *every* area
-	while (remainingAttractionPoints > 1)
+	while (remainingAttractionPoints > 1 && noProgressCount < 20)
 	{
 		for (auto& point : attractionPoints)
 		{
@@ -75,7 +84,7 @@ void RoadNetwork::GenerateNetwork()
 		}
 		//for each node that got selected as a closest node
 		segmentsAddedInLastRound.clear();
-		for (auto& v : segs)
+		for (auto& v : segments)
 		{
 			if (v->influenceVectors.size() > 0)
 			{
@@ -85,7 +94,7 @@ void RoadNetwork::GenerateNetwork()
 					sumVector = sumVector + vec;
 				}
 				//there is a risk we have 2 influence vectors that are opposite one another
-				if (glm::length(sumVector) < 0.50f)
+				if (glm::length(sumVector) < 1.0f)
 				{
 					sumVector = v->influenceVectors[0];
 				}
@@ -102,15 +111,15 @@ void RoadNetwork::GenerateNetwork()
 		//move the newly created segments into the main collection
 		for (auto& n : segmentsAddedInLastRound)
 		{
-			segs.push_back(n);
+			segments.push_back(n);
 		}
-		//printf("Added %i segments\n", segmentsAddedInLastRound.size());
+		
 		//for each attraction point, determine if there are any segments in the kill distance
 		std::vector<AttractionPoint> rPoints;
 		for (auto& p : attractionPoints)
 		{
 			bool killThisPoint = false;
-			for (auto& s : segs)
+			for (auto& s : segments)
 			{
 				if (glm::length(p.location - s->end) < killDistance)
 				{
@@ -126,9 +135,12 @@ void RoadNetwork::GenerateNetwork()
 		attractionPoints.clear();
 		attractionPoints = rPoints;
 		remainingAttractionPoints = attractionPoints.size();
+		if (remainingAttractionPoints == remainingAttractionPointsAtLastIter)
+		{
+			noProgressCount++;
+		}
 		remainingAttractionPointsAtLastIter = remainingAttractionPoints;
-		//move record of all segments to class variable
-		segments = segs;
+		printf("Added %i segments, %i total segments, %i rap\n", segmentsAddedInLastRound.size(), segments.size(), remainingAttractionPoints);
 	}
 }
 

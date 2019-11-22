@@ -8,9 +8,10 @@
 
 static glm::vec4 roadCol = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
 static glm::vec4 apCol = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-static int attractionPointCount = 500;
+static int attractionPointCount = 1000;
 static float segmentLength = 5.0f;
-static float killDistance = 10.0f;
+static float killDistance = 5.0f;
+static int startingSegmentCount = 8;
 
 class Segment
 {
@@ -51,6 +52,7 @@ private:
 	std::vector<int> APIndices;
 	std::vector<AttractionPoint> attractionPoints;
 	void ConstructAPMesh();
+	void PickStartingSegments();
 public:
 	RoadNetwork();
 	~RoadNetwork();
