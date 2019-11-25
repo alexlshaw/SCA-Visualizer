@@ -26,7 +26,7 @@ void RoadNetwork::PickStartingSegments()
 		int idx = rand() % attractionPointCount;
 		//starting segments are 0-length
 		Segment* base = new Segment(attractionPoints[idx].location, attractionPoints[idx].location);
-		base->parent = nullptr;
+		base->root = base;
 		segments.push_back(base);
 	}
 }
@@ -39,6 +39,7 @@ void RoadNetwork::GenerateNetwork()
 	int remainingAttractionPoints = attractionPointCount;
 	int remainingAttractionPointsAtLastIter = remainingAttractionPoints;
 	int noProgressCount = 0;
+	int totalConnectors = 0;
 	//generate initial closeness network
 	for (auto& point : attractionPoints)
 	{
@@ -73,6 +74,7 @@ void RoadNetwork::GenerateNetwork()
 				{
 					point.closest = seg;
 					closestDistance = glm::length(point.location - point.closest->end);
+					seg->closestFlag = true;
 				}
 			}
 
@@ -80,6 +82,36 @@ void RoadNetwork::GenerateNetwork()
 			if (point.closest != nullptr)
 			{
 				point.closest->influenceVectors.push_back(glm::normalize(point.location - point.closest->end));
+			}
+		}
+		//check all of the recently added segments and see if we want to attract them to one another
+		for (auto& seg : segmentsAddedInLastRound)
+		{
+			if (!seg->closestFlag)
+			{
+				//it wasn't close to a point, but it might be close to another segment
+				//the trouble with this check is that maybe it should be attracted to another segment that wasn't added in the last round
+				for (auto& seg2 : segmentsAddedInLastRound)
+				{
+					if (seg->root != seg2->root)
+					{
+						
+						float dist = glm::length(seg->end - seg2->end);
+						if (dist < segmentConnectionThreshold)
+						{
+							Segment* connector = new Segment(seg->end, seg2->end);
+							connector->parent = seg;
+							connector->root = seg->root;
+							connector->col = connCol;
+							totalConnectors++;
+							segments.push_back(connector);
+						}
+						else if (dist < interSegmentAttractionThreshold)
+						{
+							seg->influenceVectors.push_back(seg2->end - seg->end);
+						}
+					}
+				}
 			}
 		}
 		//for each node that got selected as a closest node
@@ -103,6 +135,7 @@ void RoadNetwork::GenerateNetwork()
 				//create and attach a new segment
 				Segment* sPrime = new Segment(v->end, v->end + (sumVector * segmentLength));
 				sPrime->parent = v;
+				sPrime->root = v->root;
 				v->children.push_back(sPrime);
 				segmentsAddedInLastRound.push_back(sPrime);
 				v->influenceVectors.clear();
@@ -140,8 +173,47 @@ void RoadNetwork::GenerateNetwork()
 			noProgressCount++;
 		}
 		remainingAttractionPointsAtLastIter = remainingAttractionPoints;
-		printf("Added %i segments, %i total segments, %i rap\n", segmentsAddedInLastRound.size(), segments.size(), remainingAttractionPoints);
+		//printf("Added %i segments, %i total segments, %i rap\n", segmentsAddedInLastRound.size(), segments.size(), remainingAttractionPoints);
 	}
+	printf("%i total connectors\n", totalConnectors);
+	//PostGenerationConnection();
+}
+
+void RoadNetwork::PostGenerationConnection()
+{
+	int totalConnectors = 0;
+	//build the list of all end point segments
+	std::vector<Segment*> childFree;
+	for (auto& seg : segments)
+	{
+		if (seg->children.size() == 0)
+		{
+			childFree.push_back(seg);
+		}
+	}
+	for (auto& cf : childFree)
+	{
+		for (auto& target : childFree)
+		{
+			//make sure that the segment we are currently looking at still hasn't been connected and that the segments are from different starting networks
+			if (cf->root != target->root)	//banning same root is too conservative, but no restriction is too permissive
+			{
+				float dist = glm::length(cf->end - target->end);
+				if (dist < segmentConnectionThreshold)
+				{
+					Segment* connector = new Segment(cf->end, target->end);
+					connector->parent = cf;
+					connector->root = cf->root;
+					connector->col = connCol;
+					cf->children.push_back(connector);
+					target->children.push_back(connector);
+					totalConnectors++;
+					segments.push_back(connector);
+				}
+			}
+		}
+	}
+	printf("%i total connectors\n", totalConnectors);
 }
 
 void RoadNetwork::SetInitialAttractionPoints()
@@ -158,42 +230,45 @@ void RoadNetwork::SetInitialAttractionPoints()
 
 void RoadNetwork::ConstructAPMesh()
 {
-	int i = 0;
-	for (auto iter = attractionPoints.begin(); iter != attractionPoints.end(); ++iter)
+	if (attractionPoints.size() > 0)
 	{
-		glm::vec2 currentPoint = (*iter).location;
-		Vertex v0 = Vertex(glm::vec4(currentPoint.x, currentPoint.y, 0.0f, 1.0f), apCol);
-		Vertex v1 = Vertex(glm::vec4(currentPoint.x + 1.0f, currentPoint.y, 0.0f, 1.0f), apCol);
-		Vertex v2 = Vertex(glm::vec4(currentPoint.x + 1.0f, currentPoint.y + 1.0f, 0.0f, 1.0f), apCol);
-		Vertex v3 = Vertex(glm::vec4(currentPoint.x, currentPoint.y + 1.0f, 0.0f, 1.0f), apCol);
-		APVertices.push_back(v0);
-		APVertices.push_back(v1);
-		APVertices.push_back(v2);
-		APVertices.push_back(v3);
-		APIndices.push_back(i * 4);
-		APIndices.push_back(i * 4 + 1);
-		APIndices.push_back(i * 4 + 2);
-		APIndices.push_back(i * 4);
-		APIndices.push_back(i * 4 + 2);
-		APIndices.push_back(i * 4 + 3);
-		i++;
+		int i = 0;
+		for (auto iter = attractionPoints.begin(); iter != attractionPoints.end(); ++iter)
+		{
+			glm::vec2 currentPoint = (*iter).location;
+			Vertex v0 = Vertex(glm::vec4(currentPoint.x, currentPoint.y, 0.0f, 1.0f), apCol);
+			Vertex v1 = Vertex(glm::vec4(currentPoint.x + 1.0f, currentPoint.y, 0.0f, 1.0f), apCol);
+			Vertex v2 = Vertex(glm::vec4(currentPoint.x + 1.0f, currentPoint.y + 1.0f, 0.0f, 1.0f), apCol);
+			Vertex v3 = Vertex(glm::vec4(currentPoint.x, currentPoint.y + 1.0f, 0.0f, 1.0f), apCol);
+			APVertices.push_back(v0);
+			APVertices.push_back(v1);
+			APVertices.push_back(v2);
+			APVertices.push_back(v3);
+			APIndices.push_back(i * 4);
+			APIndices.push_back(i * 4 + 1);
+			APIndices.push_back(i * 4 + 2);
+			APIndices.push_back(i * 4);
+			APIndices.push_back(i * 4 + 2);
+			APIndices.push_back(i * 4 + 3);
+			i++;
+		}
+		APindexCount = APIndices.size();
+		glGenVertexArrays(1, &avao);
+		glGenBuffers(1, &avbo);
+		glBindVertexArray(avao);
+		glBindBuffer(GL_ARRAY_BUFFER, avbo);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * APVertices.size(), &APVertices[0], GL_STATIC_DRAW);
+		//position
+		glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)0);
+		glEnableVertexAttribArray(0);
+		//color
+		glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)16);
+		glEnableVertexAttribArray(1);
+		glGenBuffers(1, &aibo);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, aibo);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * APIndices.size(), &APIndices[0], GL_STATIC_DRAW);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	}
-	APindexCount = APIndices.size();
-	glGenVertexArrays(1, &avao);
-	glGenBuffers(1, &avbo);
-	glBindVertexArray(avao);
-	glBindBuffer(GL_ARRAY_BUFFER, avbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * APVertices.size(), &APVertices[0], GL_STATIC_DRAW);
-	//position
-	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)0);
-	glEnableVertexAttribArray(0);
-	//color
-	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)16);
-	glEnableVertexAttribArray(1);
-	glGenBuffers(1, &aibo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, aibo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * APIndices.size(), &APIndices[0], GL_STATIC_DRAW);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 void RoadNetwork::ConstructMesh()
@@ -201,8 +276,8 @@ void RoadNetwork::ConstructMesh()
 	for (unsigned int i = 0; i < segments.size(); i++)
 	{
 		Segment s = *segments[i];
-		Vertex v0 = Vertex(glm::vec4(s.start.x, s.start.y, 0.0f, 1.0f), roadCol);
-		Vertex v1 = Vertex(glm::vec4(s.end.x, s.end.y, 0.0f, 1.0f), roadCol);
+		Vertex v0 = Vertex(glm::vec4(s.start.x, s.start.y, 0.0f, 1.0f), s.col);
+		Vertex v1 = Vertex(glm::vec4(s.end.x, s.end.y, 0.0f, 1.0f), s.col);
 		vertices.push_back(v0);
 		vertices.push_back(v1);
 		indices.push_back(2 * i);
@@ -244,7 +319,10 @@ void RoadNetwork::DrawMesh()
 
 Segment::Segment(glm::vec2 pos1, glm::vec2 pos2)
 {
+	this->root = nullptr;
 	this->parent = nullptr;
 	this->start = pos1;
 	this->end = pos2;
+	closestFlag = false;
+	col = roadCol;
 }
