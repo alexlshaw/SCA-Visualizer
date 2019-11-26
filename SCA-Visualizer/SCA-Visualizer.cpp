@@ -8,17 +8,20 @@
 #include "time.h"
 #include <iostream>
 #include <vector>
+#include "MapLayer.h"
 #include "RoadNetwork.h"
 #include "Shader.h"
 #include "Vertex.h"
 
 GLFWwindow* mainWindow = nullptr;
 bool shouldExit = false;
-int screenWidth = 1024, screenHeight = 768;
+int screenWidth = 1024, screenHeight = 1024;
 
 Shader* basic = nullptr;
-int uProjMatrix, uModelMatrix;
+Shader* texturedUnlit = nullptr;
+int uBProjMatrix, uBModelMatrix, uTProjMatrix, uTModelMatrix, uTex;
 
+MapLayer* layer;
 RoadNetwork* network;
 
 void error_callback(int error, const char* description)
@@ -67,7 +70,7 @@ int init_GLFW()
 
 void init_GL()
 {
-	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+	glClearColor(0.0f, 0.0f, 1.0f, 1.0f);
 	glClearDepth(1.0);
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LEQUAL);
@@ -79,13 +82,20 @@ void init_GL()
 	{
 		printf("GL Initialisation error\n");
 	}
-
+	//load shaders
 	basic = new Shader();
 	basic->compileShaderFromFile("./Data/Shaders/basic.vert", VERTEX);
 	basic->compileShaderFromFile("./Data/Shaders/basic.frag", FRAGMENT);
 	basic->linkAndValidate();
-	uProjMatrix = basic->getUniformLocation("projectionViewMatrix");
-	uModelMatrix = basic->getUniformLocation("modelMatrix");
+	uBProjMatrix = basic->getUniformLocation("projectionViewMatrix");
+	uBModelMatrix = basic->getUniformLocation("modelMatrix");
+	texturedUnlit = new Shader();
+	texturedUnlit->compileShaderFromFile("./Data/Shaders/TexturedUnlit.vert", VERTEX);
+	texturedUnlit->compileShaderFromFile("./Data/Shaders/TexturedUnlit.frag", FRAGMENT);
+	texturedUnlit->linkAndValidate();
+	uTProjMatrix = texturedUnlit->getUniformLocation("projectionViewMatrix");
+	uTModelMatrix = texturedUnlit->getUniformLocation("modelMatrix");
+	uTex = texturedUnlit->getUniformLocation("tex");
 
 	int width, height;
 	glfwGetFramebufferSize(mainWindow, &width, &height);
@@ -97,10 +107,16 @@ void draw()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glm::mat4 projection = glm::ortho(0.0f, (float)screenWidth, 0.0f, (float)screenHeight, -1.0f, 1.0f);
 	glm::mat4 modelview = glm::identity<glm::mat4>();
-	basic->use();
-	basic->setUniform(uModelMatrix, modelview);
-	basic->setUniform(uProjMatrix, projection);
+	
+	texturedUnlit->use();
+	texturedUnlit->setUniform(uTModelMatrix, modelview);
+	texturedUnlit->setUniform(uTProjMatrix, projection);
+	texturedUnlit->setUniform(uTex, 0);
+	layer->Draw();
 
+	basic->use();
+	basic->setUniform(uBModelMatrix, modelview);
+	basic->setUniform(uBProjMatrix, projection);
 	network->DrawMesh();
 
 	glfwSwapBuffers(mainWindow);
@@ -110,9 +126,24 @@ void exit()
 {
 	delete network;
 	network = nullptr;
+	delete layer;
+	layer = nullptr;
 	delete basic;
 	basic = nullptr;
+	delete texturedUnlit;
+	texturedUnlit = nullptr;
 	glfwTerminate();
+}
+
+void generateData()
+{
+	//load the map data
+	layer = new MapLayer("D:\\Data\\Topographical\\AucklandTest.tga", 1024, 1024);
+	//generate the network
+	int sTime = time(NULL);
+	network = new RoadNetwork(layer);
+	int tTime = time(NULL) - sTime;
+	printf("Generation time: %i\n", tTime);
 }
 
 int main()
@@ -123,10 +154,7 @@ int main()
 	}
 	init_GL();
 	srand((unsigned int)(time(NULL)));
-	int sTime = time(NULL);
-	network = new RoadNetwork();
-	int tTime = time(NULL) - sTime;
-	printf("Generation time: %i\n", tTime);
+	generateData();
 	/* Loop until the user closes the window */
 	while (!shouldExit && !glfwWindowShouldClose(mainWindow))
 	{

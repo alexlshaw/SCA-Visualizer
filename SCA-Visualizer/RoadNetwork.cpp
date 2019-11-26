@@ -1,7 +1,8 @@
 #include "RoadNetwork.h"
 
-RoadNetwork::RoadNetwork()
+RoadNetwork::RoadNetwork(MapLayer* map)
 {
+	walkability = map;
 	GenerateNetwork();
 	ConstructMesh();
 	ConstructAPMesh();
@@ -176,6 +177,7 @@ void RoadNetwork::GenerateNetwork()
 		//printf("Added %i segments, %i total segments, %i rap\n", segmentsAddedInLastRound.size(), segments.size(), remainingAttractionPoints);
 	}
 	printf("%i total connectors\n", totalConnectors);
+	printf("%i total segments\n", segments.size());
 	//PostGenerationConnection();
 }
 
@@ -219,13 +221,20 @@ void RoadNetwork::PostGenerationConnection()
 void RoadNetwork::SetInitialAttractionPoints()
 {
 	int xRange = 1024;
-	int yRange = 768;
+	int yRange = 1024;
+	int x, y;
 	for (int i = 0; i < attractionPointCount; i++)
 	{
-		float rX = (float)(rand() % xRange);
-		float rY = (float)(rand() % yRange);
-		attractionPoints.push_back(AttractionPoint(glm::vec2(rX, rY)));
+		x = rand() % xRange;
+		y = rand() % yRange;
+		while (!walkability->Walkable(x, y))
+		{
+			x = rand() % xRange;
+			y = rand() % yRange;
+		}
+		attractionPoints.push_back(AttractionPoint(glm::vec2((float)x, (float)y)));
 	}
+	printf("%i points generated\n", attractionPoints.size());
 }
 
 void RoadNetwork::ConstructAPMesh()
@@ -297,7 +306,7 @@ void RoadNetwork::ConstructMesh()
 	glEnableVertexAttribArray(1);
 	glGenBuffers(1, &ibo);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * indices.size(), &indices[0], GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int) * indices.size(), &indices[0], GL_STATIC_DRAW);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 

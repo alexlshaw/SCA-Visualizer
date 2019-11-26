@@ -4,6 +4,7 @@
 #include "glad/glad.h"
 #include <deque>
 #include <vector>
+#include "MapLayer.h"
 #include "Vertex.h"
 
 static glm::vec4 roadCol = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
@@ -11,7 +12,7 @@ static glm::vec4 apCol = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 static glm::vec4 connCol = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
 static int attractionPointCount = 1000;
 static float segmentLength = 10.0f;			//Generation time significantly increases as this value decreases
-static float killDistance = 5.0f;
+static float killDistance = 5.0f;			//Dropping this below 5 increases generation time by orders of magnitude (though that might be to do with being < 0.5 * segment length - any segment that is exactly 0.5 * segment length away will generate a new segment passing through the point that ends up the same distance from the point (out of kill radius))
 static int startingSegmentCount = 8;
 static float interSegmentAttractionThreshold = 50.0f;
 static float segmentConnectionThreshold = 10.0f;
@@ -57,12 +58,13 @@ private:
 	std::vector<Vertex> APVertices;
 	std::vector<int> APIndices;
 	std::vector<AttractionPoint> attractionPoints;
+	MapLayer* walkability;
 	void ConstructAPMesh();
 	void ConstructMesh();
 	void PickStartingSegments();
 	void PostGenerationConnection();
 public:
-	RoadNetwork();
+	RoadNetwork(MapLayer* map);
 	~RoadNetwork();
 	void SetInitialAttractionPoints();
 	void GenerateNetwork();

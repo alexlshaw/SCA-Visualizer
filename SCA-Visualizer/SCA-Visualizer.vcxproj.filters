@@ -30,6 +30,12 @@
     <ClCompile Include="RoadNetwork.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Texture.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MapLayer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -37,6 +43,12 @@
       <Filter>Shaders</Filter>
     </None>
     <None Include="Data\Shaders\Basic.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Data\Shaders\TexturedUnlit.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Data\Shaders\TexturedUnlit.vert">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>
@@ -48,6 +60,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Vertex.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Texture.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MapLayer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -154,18 +154,24 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="glad.c" />
+    <ClCompile Include="MapLayer.cpp" />
     <ClCompile Include="RoadNetwork.cpp" />
     <ClCompile Include="SCA-Visualizer.cpp" />
     <ClCompile Include="Shader.cpp" />
+    <ClCompile Include="Texture.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Data\Shaders\Basic.frag" />
     <None Include="Data\Shaders\Basic.vert" />
+    <None Include="Data\Shaders\TexturedUnlit.frag" />
+    <None Include="Data\Shaders\TexturedUnlit.vert" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="MapLayer.h" />
     <ClInclude Include="RoadNetwork.h" />
     <ClInclude Include="Shader.h" />
+    <ClInclude Include="Texture.h" />
     <ClInclude Include="Vertex.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
