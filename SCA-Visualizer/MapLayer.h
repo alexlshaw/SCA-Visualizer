@@ -8,6 +8,8 @@
 #include "Texture.h"
 #include "Vertex.h"
 
+const static float HeightScalingFactor = 5.50f;
+
 class MapLayer
 {
 private:
@@ -26,4 +28,5 @@ public:
 	bool Walkable(int x, int y);
 	float MaxmimalSlope(int x, int y);
 	float HeightLookup(int x, int y);
+	float AccessibilityBetweenPoints(glm::vec2 p1, glm::vec2 p2);	//Returns accessibility value [0...1] ranging from non-accessible to easily accessible
 };

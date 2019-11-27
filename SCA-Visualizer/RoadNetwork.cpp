@@ -60,7 +60,11 @@ void RoadNetwork::GenerateClosenessNetwork(std::deque<Segment*>* candidateSegmen
 		}
 		if (point.closest != nullptr)
 		{
-			point.closest->influenceVectors.push_back(glm::normalize(point.location - point.closest->end));
+			//make sure we're not working with a 0-length vector
+			if (point.location != point.closest->end)
+			{
+				point.closest->influenceVectors.push_back(glm::normalize(point.location - point.closest->end));
+			}
 		}
 	}
 	high_resolution_clock::time_point t2 = high_resolution_clock::now();
@@ -88,6 +92,7 @@ void RoadNetwork::GenerateNetwork()
 		PrintStateUpdate();
 		//regenerate the closeness map from newly added segments
 		GenerateClosenessNetwork(&segmentsAddedInLastRound);
+		//remove any points where the network has colonised their space
 		KillPointsNearSegments();
 		//check all of the recently added segments and see if we want to attract them to one another
 		InGenerationConnection(&segmentsAddedInLastRound);
@@ -98,8 +103,6 @@ void RoadNetwork::GenerateNetwork()
 		{
 			segments.push_back(n);
 		}
-		//remove any points where the network has colonised their space
-		//KillPointsNearSegments();
 		remainingAttractionPoints = attractionPoints.size();
 		if (remainingAttractionPoints == remainingAttractionPointsAtLastIter)
 		{
@@ -130,12 +133,17 @@ void RoadNetwork::AddNewSegmentSet(std::deque<Segment*>* segmentsAddedInLastRoun
 			//normalise sv
 			sumVector = glm::normalize(sumVector);
 			//create and attach a new segment
-			Segment* sPrime = new Segment(v->end, v->end + (sumVector * segmentLength));
-			sPrime->parent = v;
-			sPrime->root = v->root;
-			v->children.push_back(sPrime);
-			segmentsAddedInLastRound->push_back(sPrime);
-			v->influenceVectors.clear();
+			glm::vec2 target = v->end + (sumVector * segmentLength);
+			float sLength = segmentLength * walkability->AccessibilityBetweenPoints(v->end, target);
+			if (sLength > 0.1f)	//only bother to create the segment if it's gonna go anywhere
+			{
+				Segment* sPrime = new Segment(v->end, v->end + (sumVector * sLength));
+				sPrime->parent = v;
+				sPrime->root = v->root;
+				v->children.push_back(sPrime);
+				segmentsAddedInLastRound->push_back(sPrime);
+				v->influenceVectors.clear();
+			}
 		}
 	}
 }
@@ -297,32 +305,35 @@ void RoadNetwork::ConstructAPMesh()
 
 void RoadNetwork::ConstructMesh()
 {
-	for (unsigned int i = 0; i < segments.size(); i++)
+	if (segments.size() > 0)
 	{
-		Segment s = *segments[i];
-		Vertex v0 = Vertex(glm::vec4(s.start.x, s.start.y, 0.0f, 1.0f), s.col);
-		Vertex v1 = Vertex(glm::vec4(s.end.x, s.end.y, 0.0f, 1.0f), s.col);
-		vertices.push_back(v0);
-		vertices.push_back(v1);
-		indices.push_back(2 * i);
-		indices.push_back((2 * i) + 1);
+		for (unsigned int i = 0; i < segments.size(); i++)
+		{
+			Segment s = *segments[i];
+			Vertex v0 = Vertex(glm::vec4(s.start.x, s.start.y, 0.0f, 1.0f), s.col);
+			Vertex v1 = Vertex(glm::vec4(s.end.x, s.end.y, 0.0f, 1.0f), s.col);
+			vertices.push_back(v0);
+			vertices.push_back(v1);
+			indices.push_back(2 * i);
+			indices.push_back((2 * i) + 1);
+		}
+		indexCount = indices.size();
+		glGenVertexArrays(1, &vao);
+		glGenBuffers(1, &vbo);
+		glBindVertexArray(vao);
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * vertices.size(), &vertices[0], GL_STATIC_DRAW);
+		//position
+		glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)0);
+		glEnableVertexAttribArray(0);
+		//color
+		glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)16);
+		glEnableVertexAttribArray(1);
+		glGenBuffers(1, &ibo);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int) * indices.size(), &indices[0], GL_STATIC_DRAW);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	}
-	indexCount = indices.size();
-	glGenVertexArrays(1, &vao);
-	glGenBuffers(1, &vbo);
-	glBindVertexArray(vao);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * vertices.size(), &vertices[0], GL_STATIC_DRAW);
-	//position
-	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)0);
-	glEnableVertexAttribArray(0);
-	//color
-	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)16);
-	glEnableVertexAttribArray(1);
-	glGenBuffers(1, &ibo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int) * indices.size(), &indices[0], GL_STATIC_DRAW);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 void RoadNetwork::DrawMesh()

@@ -14,6 +14,13 @@ MapLayer::MapLayer(const char* path, int width, int height)
 	free(pixels);
 	//create the mesh	(might extract this out into a standalone mesh servicing multiple layers if I need to)
 	BuildMesh(width, height);
+
+
+	
+	/*float westAccessibility = AccessibilityBetweenPoints(glm::vec2(55.f, 690.f), glm::vec2(55.f, 697.f));	//test accessibility value for very flat land
+	printf("West ac is %f\n", westAccessibility);
+	float mountAccessibility = AccessibilityBetweenPoints(glm::vec2(676.f, 482.f), glm::vec2(697.f, 478.f));	//test accessibility value for steep slope
+	printf("Mount ac is %f\n", mountAccessibility);*/
 }
 
 void MapLayer::BuildMesh(int width, int height)
@@ -88,11 +95,23 @@ float MapLayer::MaxmimalSlope(int x, int y)
 
 float MapLayer::HeightLookup(int x, int y)
 {
+	if (x < 0) x = 0;
+	if (y < 0) y = 0;
+	if (x >= mapWidth) x = mapWidth - 1;
+	if (y >= mapHeight) y = mapHeight - 1;
 	int pidx = x + mapWidth * y;
 	int r = vPixels[4 * pidx];
 	int g = vPixels[4 * pidx + 1];
 	int b = vPixels[4 * pidx + 2];
-	return (float)(r + g + b);
+	return ((float)(r + g + b)) / HeightScalingFactor;
+}
+
+float MapLayer::AccessibilityBetweenPoints(glm::vec2 p1, glm::vec2 p2)
+{
+	float rise = fabs(HeightLookup((int)p1.x, (int)p1.y) - HeightLookup((int)p2.x, (int)p2.y));
+	float run = glm::length(p1 - p2);
+	glm::vec2 rvec = p1 - p2;
+	return fmax(0.0f, 1.0f - (rise / run));
 }
 
 MapLayer::~MapLayer()
