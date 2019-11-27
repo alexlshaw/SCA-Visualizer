@@ -1,11 +1,20 @@
 #include "RoadNetwork.h"
 
+using namespace std::chrono;
+
 RoadNetwork::RoadNetwork(MapLayer* map)
 {
+	state = 0;
+	totalConnectors = 0;
+	connectionTime = 0.0;
+	killTime = 0.0;
+	closenessNetworkTime = 0.0;
 	walkability = map;
+	SetInitialAttractionPoints();
+	ConstructAPMesh();
 	GenerateNetwork();
 	ConstructMesh();
-	ConstructAPMesh();
+	
 }
 
 RoadNetwork::~RoadNetwork()
@@ -32,153 +41,159 @@ void RoadNetwork::PickStartingSegments()
 	}
 }
 
-void RoadNetwork::GenerateNetwork()
+void RoadNetwork::GenerateClosenessNetwork(std::deque<Segment*>* candidateSegments)
 {
-	SetInitialAttractionPoints();
-	PickStartingSegments();
-	
-	int remainingAttractionPoints = attractionPointCount;
-	int remainingAttractionPointsAtLastIter = remainingAttractionPoints;
-	int noProgressCount = 0;
-	int totalConnectors = 0;
+	high_resolution_clock::time_point t1 = high_resolution_clock::now();
 	//generate initial closeness network
 	for (auto& point : attractionPoints)
 	{
-		Segment* closest = nullptr;
-		float closestDistance = 99999999.9f;	//arbitrarily large
-		for (auto& seg : segments)
+		float closestDistance = point.closest != nullptr ? glm::length(point.location - point.closest->end) : 99999999.9f;	//distance to current closest segment, or an arbitrarily large value
+		for (auto& seg : *candidateSegments)
 		{
 			float currentDistance = glm::length(point.location - seg->end);
 			if (currentDistance < closestDistance)
 			{
 				closestDistance = currentDistance;
-				closest = seg;
+				point.closest = seg;
+				seg->closestFlag = true;
 			}
 		}
-		if (closest != nullptr)
+		if (point.closest != nullptr)
 		{
-			point.closest = closest;
+			point.closest->influenceVectors.push_back(glm::normalize(point.location - point.closest->end));
 		}
 	}
+	high_resolution_clock::time_point t2 = high_resolution_clock::now();
+	duration<double> time_span = duration_cast<duration<double>>(t2 - t1);
+	closenessNetworkTime += time_span.count();
+}
+
+void RoadNetwork::GenerateNetwork()
+{
+	//initialise variables
+	int remainingAttractionPoints = attractionPointCount;
+	int remainingAttractionPointsAtLastIter = remainingAttractionPoints;
+	int noProgressCount = 0;
 	std::deque<Segment*> segmentsAddedInLastRound;
 
-	//build segments until we have connected *every* area
+	//initialise network
+	PickStartingSegments();
+	for (auto& seg : segments)
+	{
+		segmentsAddedInLastRound.push_back(seg);
+	}
+	//build segments until we have connected just about every point or we have gone for a while without connecting anything new
 	while (remainingAttractionPoints > 1 && noProgressCount < 20)
 	{
-		for (auto& point : attractionPoints)
-		{
-			//find the segment closest to the attraction point (all points track the last closest segment, so we only check newly added segments)
-			float closestDistance = glm::length(point.location - point.closest->end);
-			for (auto& seg : segmentsAddedInLastRound)
-			{
-				if (glm::length(point.location - seg->end) < closestDistance)
-				{
-					point.closest = seg;
-					closestDistance = glm::length(point.location - point.closest->end);
-					seg->closestFlag = true;
-				}
-			}
-
-			//calculate the normalized vector to the node and add to the influence vectors
-			if (point.closest != nullptr)
-			{
-				point.closest->influenceVectors.push_back(glm::normalize(point.location - point.closest->end));
-			}
-		}
+		PrintStateUpdate();
+		//regenerate the closeness map from newly added segments
+		GenerateClosenessNetwork(&segmentsAddedInLastRound);
+		KillPointsNearSegments();
 		//check all of the recently added segments and see if we want to attract them to one another
-		for (auto& seg : segmentsAddedInLastRound)
-		{
-			if (!seg->closestFlag)
-			{
-				//it wasn't close to a point, but it might be close to another segment
-				//the trouble with this check is that maybe it should be attracted to another segment that wasn't added in the last round
-				for (auto& seg2 : segmentsAddedInLastRound)
-				{
-					if (seg->root != seg2->root)
-					{
-						
-						float dist = glm::length(seg->end - seg2->end);
-						if (dist < segmentConnectionThreshold)
-						{
-							Segment* connector = new Segment(seg->end, seg2->end);
-							connector->parent = seg;
-							connector->root = seg->root;
-							connector->col = connCol;
-							totalConnectors++;
-							segments.push_back(connector);
-						}
-						else if (dist < interSegmentAttractionThreshold)
-						{
-							seg->influenceVectors.push_back(seg2->end - seg->end);
-						}
-					}
-				}
-			}
-		}
-		//for each node that got selected as a closest node
-		segmentsAddedInLastRound.clear();
-		for (auto& v : segments)
-		{
-			if (v->influenceVectors.size() > 0)
-			{
-				glm::vec2 sumVector = glm::vec2(0.0f, 0.0f);
-				for (auto& vec : v->influenceVectors)
-				{
-					sumVector = sumVector + vec;
-				}
-				//there is a risk we have 2 influence vectors that are opposite one another
-				if (glm::length(sumVector) < 1.0f)
-				{
-					sumVector = v->influenceVectors[0];
-				}
-				//normalise sv
-				sumVector = glm::normalize(sumVector);
-				//create and attach a new segment
-				Segment* sPrime = new Segment(v->end, v->end + (sumVector * segmentLength));
-				sPrime->parent = v;
-				sPrime->root = v->root;
-				v->children.push_back(sPrime);
-				segmentsAddedInLastRound.push_back(sPrime);
-				v->influenceVectors.clear();
-			}
-		}
+		InGenerationConnection(&segmentsAddedInLastRound);
+		//Add a new set of segments for this round
+		AddNewSegmentSet(&segmentsAddedInLastRound);
 		//move the newly created segments into the main collection
 		for (auto& n : segmentsAddedInLastRound)
 		{
 			segments.push_back(n);
 		}
-		
-		//for each attraction point, determine if there are any segments in the kill distance
-		std::vector<AttractionPoint> rPoints;
-		for (auto& p : attractionPoints)
-		{
-			bool killThisPoint = false;
-			for (auto& s : segments)
-			{
-				if (glm::length(p.location - s->end) < killDistance)
-				{
-					killThisPoint = true;
-				}
-			}
-			if (!killThisPoint)
-			{
-				rPoints.push_back(p);
-			}
-			
-		}
-		attractionPoints.clear();
-		attractionPoints = rPoints;
+		//remove any points where the network has colonised their space
+		//KillPointsNearSegments();
 		remainingAttractionPoints = attractionPoints.size();
 		if (remainingAttractionPoints == remainingAttractionPointsAtLastIter)
 		{
 			noProgressCount++;
 		}
 		remainingAttractionPointsAtLastIter = remainingAttractionPoints;
-		//printf("Added %i segments, %i total segments, %i rap\n", segmentsAddedInLastRound.size(), segments.size(), remainingAttractionPoints);
 	}
-	printf("%i total connectors\n", totalConnectors);
-	printf("%i total segments\n", segments.size());
-	//PostGenerationConnection();
+	PrintSummaryStatistics();
+}
+
+void RoadNetwork::AddNewSegmentSet(std::deque<Segment*>* segmentsAddedInLastRound)
+{
+	segmentsAddedInLastRound->clear();
+	for (auto& v : segments)
+	{
+		if (v->influenceVectors.size() > 0)
+		{
+			glm::vec2 sumVector = glm::vec2(0.0f, 0.0f);
+			for (auto& vec : v->influenceVectors)
+			{
+				sumVector = sumVector + vec;
+			}
+			//there is a risk we have 2 influence vectors that are opposite one another
+			if (glm::length(sumVector) < 1.0f)
+			{
+				sumVector = v->influenceVectors[0];
+			}
+			//normalise sv
+			sumVector = glm::normalize(sumVector);
+			//create and attach a new segment
+			Segment* sPrime = new Segment(v->end, v->end + (sumVector * segmentLength));
+			sPrime->parent = v;
+			sPrime->root = v->root;
+			v->children.push_back(sPrime);
+			segmentsAddedInLastRound->push_back(sPrime);
+			v->influenceVectors.clear();
+		}
+	}
+}
+
+void RoadNetwork::KillPointsNearSegments()
+{
+	high_resolution_clock::time_point t1 = high_resolution_clock::now();
+	std::vector<AttractionPoint> rPoints;
+	for (auto& p : attractionPoints)
+	{
+		//the closeness network has just been generated, so each point should now be tracking its closest segment
+		if (glm::length(p.location - p.closest->end) > killDistance)
+		{
+			rPoints.push_back(p);
+		}
+	}
+	attractionPoints.clear();
+	attractionPoints = rPoints;
+	high_resolution_clock::time_point t2 = high_resolution_clock::now();
+	duration<double> time_span = duration_cast<duration<double>>(t2 - t1);
+	killTime += time_span.count();
+}
+
+void RoadNetwork::InGenerationConnection(std::deque<Segment*>* segmentsAddedInLastRound)
+{
+	high_resolution_clock::time_point t1 = high_resolution_clock::now();
+	for (auto& seg : *segmentsAddedInLastRound)
+	{
+		if (!seg->closestFlag)
+		{
+			//it wasn't close to a point, but it might be close to another segment
+			//the trouble with this check is that maybe it should be attracted to another segment that wasn't added in the last round
+			for (auto& seg2 : *segmentsAddedInLastRound)
+			{
+				if (seg->root != seg2->root)
+				{
+
+					float dist = glm::length(seg->end - seg2->end);
+					if (dist < segmentConnectionThreshold)
+					{
+						Segment* connector = new Segment(seg->end, seg2->end);
+						connector->parent = seg;
+						connector->root = seg->root;
+						connector->col = connCol;
+						totalConnectors++;
+						segments.push_back(connector);
+					}
+					else if (dist < interSegmentAttractionThreshold)
+					{
+						seg->influenceVectors.push_back(seg2->end - seg->end);
+					}
+				}
+			}
+		}
+	}
+	high_resolution_clock::time_point t2 = high_resolution_clock::now();
+	duration<double> time_span = duration_cast<duration<double>>(t2 - t1);
+	connectionTime += time_span.count();
 }
 
 void RoadNetwork::PostGenerationConnection()
@@ -323,6 +338,35 @@ void RoadNetwork::DrawMesh()
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, aibo);
 	glDrawElements(GL_TRIANGLES, APindexCount, GL_UNSIGNED_INT, (void*)0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+
+void RoadNetwork::PrintSummaryStatistics()
+{
+	printf("\n--Generation Finished--\n");
+	printf("%i total connectors\n", totalConnectors);
+	printf("%i total segments\n", segments.size());
+	printf("Closeness networks took %f seconds\n", closenessNetworkTime);
+	printf("Interconnectivity added %f seconds\n", connectionTime);
+	printf("Attraction point removal took %f seconds\n", killTime);
+}
+
+void RoadNetwork::PrintStateUpdate()
+{
+	if (state == 0 && attractionPoints.size() < 1500)
+	{
+		printf("%i points remain\n", attractionPoints.size());
+		state++;
+	}
+	else if (state == 1 && attractionPoints.size() < 1000)
+	{
+		printf("%i points remain\n", attractionPoints.size());
+		state++;
+	}
+	else if (state == 2 && attractionPoints.size() < 500)
+	{
+		printf("%i points remain\n", attractionPoints.size());
+		state++;
+	}
 }
 
 

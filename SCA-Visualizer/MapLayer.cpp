@@ -2,7 +2,8 @@
 
 MapLayer::MapLayer(const char* path, int width, int height)
 {
-
+	mapWidth = width;
+	mapHeight = height;
 	//load the texture data
 	tex = new Texture();
 	int nWidth, nHeight, nComponents;
@@ -66,6 +67,32 @@ bool MapLayer::Walkable(int x, int y)
 {
 	int pidx = x + 1024 * y;
 	return vPixels[4 * pidx + 3] > 0;
+}
+
+float MapLayer::MaxmimalSlope(int x, int y)
+{
+	//detemine index of relevant pixels
+	int pidx = x + mapWidth * y;
+	int left = x > 0 ? pidx - 1 : pidx;
+	int right = x < mapWidth - 1 ? pidx + 1 : pidx;
+	int bot = y > 0 ? pidx - mapWidth : pidx;
+	int top = y < mapHeight - 1 ? y + mapWidth : y;
+
+	float m = (float)abs(vPixels[4 * pidx + 3] - vPixels[4 * left + 3]);
+	m = std::max(m, (float)abs(vPixels[4 * pidx + 3] - vPixels[4 * right + 3]));
+	m = std::max(m, (float)abs(vPixels[4 * pidx + 3] - vPixels[4 * top + 3]));
+	m = std::max(m, (float)abs(vPixels[4 * pidx + 3] - vPixels[4 * bot + 3]));
+
+	return m;
+}
+
+float MapLayer::HeightLookup(int x, int y)
+{
+	int pidx = x + mapWidth * y;
+	int r = vPixels[4 * pidx];
+	int g = vPixels[4 * pidx + 1];
+	int b = vPixels[4 * pidx + 2];
+	return (float)(r + g + b);
 }
 
 MapLayer::~MapLayer()

@@ -4,13 +4,14 @@
 #include "glad/glad.h"
 #include <deque>
 #include <vector>
+#include <chrono>
 #include "MapLayer.h"
 #include "Vertex.h"
 
 static glm::vec4 roadCol = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
-static glm::vec4 apCol = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+static glm::vec4 apCol = glm::vec4(1.0f, 0.0f, 1.0f, 1.0f);
 static glm::vec4 connCol = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
-static int attractionPointCount = 1000;
+static int attractionPointCount = 2000;
 static float segmentLength = 10.0f;			//Generation time significantly increases as this value decreases
 static float killDistance = 5.0f;			//Dropping this below 5 increases generation time by orders of magnitude (though that might be to do with being < 0.5 * segment length - any segment that is exactly 0.5 * segment length away will generate a new segment passing through the point that ends up the same distance from the point (out of kill radius))
 static int startingSegmentCount = 8;
@@ -45,9 +46,19 @@ public:
 	}
 };
 
+class MajorRoad
+{
+private:
+public:
+	std::vector<Segment*> segments;
+};
+
 class RoadNetwork
 {
 private:
+	int state;
+	int totalConnectors;
+	double connectionTime, killTime, closenessNetworkTime;
 	GLuint vbo, vao, ibo;	//buffer identifiers for primary mesh
 	GLuint avbo, avao, aibo;	//buffer identifiers for AP mesh
 	int indexCount;
@@ -62,11 +73,17 @@ private:
 	void ConstructAPMesh();
 	void ConstructMesh();
 	void PickStartingSegments();
+	void GenerateClosenessNetwork(std::deque<Segment*>* candidateSegments);
+	void InGenerationConnection(std::deque<Segment*>* segmentsAddedInLastRound);
 	void PostGenerationConnection();
+	void KillPointsNearSegments();
+	void AddNewSegmentSet(std::deque<Segment*>* segmentsAddedInLastRound);
 public:
 	RoadNetwork(MapLayer* map);
 	~RoadNetwork();
 	void SetInitialAttractionPoints();
 	void GenerateNetwork();
 	void DrawMesh();
+	void PrintSummaryStatistics();
+	void PrintStateUpdate();
 };
