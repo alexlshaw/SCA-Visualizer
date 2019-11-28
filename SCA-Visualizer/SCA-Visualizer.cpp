@@ -12,6 +12,7 @@
 #include "RoadNetwork.h"
 #include "Shader.h"
 #include "Vertex.h"
+#include "Voronoi.h"
 
 GLFWwindow* mainWindow = nullptr;
 bool shouldExit = false;
@@ -23,6 +24,9 @@ int uBProjMatrix, uBModelMatrix, uTProjMatrix, uTModelMatrix, uTex;
 
 MapLayer* layer;
 RoadNetwork* network;
+Voronoi* voro;
+bool showVoronoiOverlay = false;
+bool showNetworkOverlay = true;
 
 void error_callback(int error, const char* description)
 {
@@ -34,6 +38,24 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 	{
 		shouldExit = true;
+	}
+	if (key == GLFW_KEY_V && action == GLFW_PRESS)
+	{
+		//generate a voronoi diagram
+		if (voro == nullptr)
+		{
+			voro = new Voronoi(0.1f, network->startingLocations, 0.0f, (float)screenWidth - 1.0f, 0.0f, (float)screenHeight - 1.0f);
+			voro->BuildMesh();
+			showVoronoiOverlay = true;
+		}
+		else
+		{
+			showVoronoiOverlay = !showVoronoiOverlay;
+		}
+	}
+	if (key == GLFW_KEY_N && action == GLFW_PRESS)
+	{
+		showNetworkOverlay = !showNetworkOverlay;
 	}
 }
 
@@ -117,21 +139,46 @@ void draw()
 	basic->use();
 	basic->setUniform(uBModelMatrix, modelview);
 	basic->setUniform(uBProjMatrix, projection);
-	network->DrawMesh();
+	if (showNetworkOverlay)
+	{
+		network->DrawMesh();
+	}
+
+	if (showVoronoiOverlay)
+	{
+		voro->DrawDiagram();
+	}
 
 	glfwSwapBuffers(mainWindow);
 }
 
 void exit()
 {
-	delete network;
-	network = nullptr;
-	delete layer;
-	layer = nullptr;
-	delete basic;
-	basic = nullptr;
-	delete texturedUnlit;
-	texturedUnlit = nullptr;
+	if (voro != nullptr)
+	{
+		delete voro;
+		voro = nullptr;
+	}
+	if (network != nullptr)
+	{
+		delete network;
+		network = nullptr;
+	}
+	if (layer != nullptr)
+	{
+		delete layer;
+		layer = nullptr;
+	}
+	if (basic != nullptr)
+	{
+		delete basic;
+		basic = nullptr;
+	}
+	if (texturedUnlit != nullptr)
+	{
+		delete texturedUnlit;
+		texturedUnlit = nullptr;
+	}
 	glfwTerminate();
 }
 
@@ -140,9 +187,9 @@ void generateData()
 	//load the map data
 	layer = new MapLayer("D:\\Data\\Topographical\\AucklandTest.tga", 1024, 1024);
 	//generate the network
-	int sTime = time(NULL);
+	int sTime = (int)time(NULL);
 	network = new RoadNetwork(layer);
-	int tTime = time(NULL) - sTime;
+	int tTime = (int)time(NULL) - sTime;
 	printf("Generation time: %i\n", tTime);
 }
 

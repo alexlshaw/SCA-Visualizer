@@ -38,6 +38,7 @@ void RoadNetwork::PickStartingSegments()
 		Segment* base = new Segment(attractionPoints[idx].location, attractionPoints[idx].location);
 		base->root = base;
 		segments.push_back(base);
+		startingLocations.push_back(attractionPoints[idx].location);
 	}
 }
 
@@ -363,17 +364,17 @@ void RoadNetwork::PrintSummaryStatistics()
 
 void RoadNetwork::PrintStateUpdate()
 {
-	if (state == 0 && attractionPoints.size() < 1500)
+	if (state == 0 && attractionPoints.size() < attractionPointCount / 2)
 	{
 		printf("%i points remain\n", attractionPoints.size());
 		state++;
 	}
-	else if (state == 1 && attractionPoints.size() < 1000)
+	else if (state == 1 && attractionPoints.size() < attractionPointCount / 4)
 	{
 		printf("%i points remain\n", attractionPoints.size());
 		state++;
 	}
-	else if (state == 2 && attractionPoints.size() < 500)
+	else if (state == 2 && attractionPoints.size() < attractionPointCount / 8)
 	{
 		printf("%i points remain\n", attractionPoints.size());
 		state++;
