@@ -2,7 +2,7 @@
 
 using namespace std::chrono;
 
-RoadNetwork::RoadNetwork(MapLayer* map)
+RoadNetwork::RoadNetwork(MapLayer* map, MapLayer* streets)
 {
 	state = 0;
 	totalConnectors = 0;
@@ -10,6 +10,7 @@ RoadNetwork::RoadNetwork(MapLayer* map)
 	killTime = 0.0;
 	closenessNetworkTime = 0.0;
 	walkability = map;
+	roadAccess = streets;
 	SetInitialAttractionPoints();
 	ConstructAPMesh();
 	GenerateNetwork();
@@ -135,7 +136,7 @@ void RoadNetwork::AddNewSegmentSet(std::deque<Segment*>* segmentsAddedInLastRoun
 			sumVector = glm::normalize(sumVector);
 			//create and attach a new segment
 			glm::vec2 target = v->end + (sumVector * segmentLength);
-			float sLength = segmentLength * walkability->AccessibilityBetweenPoints(v->end, target);
+			float sLength = segmentLength * roadAccess->AccessibilityBetweenPoints(v->end, target);
 			if (sLength > 0.1f)	//only bother to create the segment if it's gonna go anywhere
 			{
 				Segment* sPrime = new Segment(v->end, v->end + (sumVector * sLength));
@@ -247,7 +248,7 @@ void RoadNetwork::SetInitialAttractionPoints()
 	int xRange = 1024;
 	int yRange = 1024;
 	int x, y;
-	for (int i = 0; i < attractionPointCount; i++)
+	for (unsigned int i = 0; i < attractionPointCount; i++)
 	{
 		x = rand() % xRange;
 		y = rand() % yRange;

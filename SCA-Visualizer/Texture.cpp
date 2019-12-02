@@ -1,6 +1,9 @@
 #include "Texture.h"
 
-Texture::Texture() {}
+Texture::Texture() 
+{
+	textureIndex = -1;
+}
 
 Texture::Texture(const char* fileName)
 {
@@ -129,7 +132,7 @@ GLbyte* readTGABits(const char* szFileName, GLint* iWidth, GLint* iHeight, GLint
 	{
 	case 4:
 		*eFormat = GL_BGRA;
-		*iComponents = GL_RGBA;
+		*iComponents = GL_BGRA;// GL_RGBA;
 		break;
 	case 1:
 		*eFormat = GL_RED;		//Changed from GL_LUMINANCE due to removal in gl 3.1

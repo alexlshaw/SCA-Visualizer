@@ -1,7 +1,8 @@
 #include "MapLayer.h"
 
-MapLayer::MapLayer(const char* path, int width, int height)
+MapLayer::MapLayer(const char* path, int width, int height, int type)
 {
+	mapType = type;
 	mapWidth = width;
 	mapHeight = height;
 	//load the texture data
@@ -106,12 +107,61 @@ float MapLayer::HeightLookup(int x, int y)
 	return ((float)(r + g + b)) / HeightScalingFactor;
 }
 
+glm::vec4 MapLayer::ColorLookup(int x, int y)
+{
+	if (x < 0) x = 0;
+	if (y < 0) y = 0;
+	if (x >= mapWidth) x = mapWidth - 1;
+	if (y >= mapHeight) y = mapHeight - 1;
+	int pidx = x + mapWidth * y;
+	int r = vPixels[4 * pidx];
+	int g = vPixels[4 * pidx + 1];
+	int b = vPixels[4 * pidx + 2];
+	int a = vPixels[4 * pidx + 3];
+	return glm::vec4(r, g, b, a);
+}
+
+float MapLayer::RoadScaleFactorFromColor(glm::vec4 color)
+{
+	if (color.r > 220 && color.g > 220 && color.b > 220)
+	{
+		return ROAD_NONE;
+	}
+	else if (color.r < 100 && color.g > 220 && color.b > 220)
+	{
+		return ROAD_MOTORWAY;
+	}
+	else if (color.g > 100 && color.g > color.r&& color.g > color.b)
+	{
+		return ROAD_MAJOR;
+	}
+	else if (color.r > 200 && color.r > color.g&& color.r > color.b)
+	{
+		return ROAD_MINOR;
+	}
+	else if (color.b > 200 && color.b > color.g && color.b > color.r)
+	{
+		return ROAD_DRIVEWAY;
+	}
+	else
+	{
+		return ROAD_NONE;
+	}
+}
+
 float MapLayer::AccessibilityBetweenPoints(glm::vec2 p1, glm::vec2 p2)
 {
-	float rise = fabs(HeightLookup((int)p1.x, (int)p1.y) - HeightLookup((int)p2.x, (int)p2.y));
-	float run = glm::length(p1 - p2);
-	glm::vec2 rvec = p1 - p2;
-	return fmax(0.0f, 1.0f - (rise / run));
+	//heightmap based accessibility
+	//float rise = fabs(HeightLookup((int)p1.x, (int)p1.y) - HeightLookup((int)p2.x, (int)p2.y));
+	//float run = glm::length(p1 - p2);
+	//glm::vec2 rvec = p1 - p2;
+	//return fmax(0.0f, 1.0f - (rise / run));
+
+
+	//roadway based accessibility
+	float startRoad = RoadScaleFactorFromColor(ColorLookup((int)p1.x, (int)p1.y));
+	float endRoad = RoadScaleFactorFromColor(ColorLookup((int)p2.x, (int)p2.y));
+	return startRoad + endRoad;
 }
 
 MapLayer::~MapLayer()

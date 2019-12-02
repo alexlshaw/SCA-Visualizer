@@ -22,11 +22,13 @@ Shader* basic = nullptr;
 Shader* texturedUnlit = nullptr;
 int uBProjMatrix, uBModelMatrix, uTProjMatrix, uTModelMatrix, uTex;
 
-MapLayer* layer;
+MapLayer* heightLayer;
+MapLayer* streetLayer;
 RoadNetwork* network;
 Voronoi* voro;
 bool showVoronoiOverlay = false;
 bool showNetworkOverlay = true;
+int layerToDraw = 0;
 
 void error_callback(int error, const char* description)
 {
@@ -56,6 +58,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	if (key == GLFW_KEY_N && action == GLFW_PRESS)
 	{
 		showNetworkOverlay = !showNetworkOverlay;
+	}
+	if (key == GLFW_KEY_L && action == GLFW_PRESS)
+	{
+		layerToDraw = layerToDraw == 0 ? 1 : 0;
 	}
 }
 
@@ -134,7 +140,15 @@ void draw()
 	texturedUnlit->setUniform(uTModelMatrix, modelview);
 	texturedUnlit->setUniform(uTProjMatrix, projection);
 	texturedUnlit->setUniform(uTex, 0);
-	layer->Draw();
+	if (layerToDraw == 0)
+	{
+		heightLayer->Draw();
+	}
+	else
+	{
+		streetLayer->Draw();
+	}
+	
 
 	basic->use();
 	basic->setUniform(uBModelMatrix, modelview);
@@ -146,7 +160,9 @@ void draw()
 
 	if (showVoronoiOverlay)
 	{
+		glLineWidth(5.0f);
 		voro->DrawDiagram();
+		glLineWidth(1.0f);
 	}
 
 	glfwSwapBuffers(mainWindow);
@@ -164,10 +180,15 @@ void exit()
 		delete network;
 		network = nullptr;
 	}
-	if (layer != nullptr)
+	if (heightLayer != nullptr)
 	{
-		delete layer;
-		layer = nullptr;
+		delete heightLayer;
+		heightLayer = nullptr;
+	}
+	if (streetLayer != nullptr)
+	{
+		delete streetLayer;
+		streetLayer = nullptr;
 	}
 	if (basic != nullptr)
 	{
@@ -185,10 +206,11 @@ void exit()
 void generateData()
 {
 	//load the map data
-	layer = new MapLayer("D:\\Data\\Topographical\\AucklandTest.tga", 1024, 1024);
+	heightLayer = new MapLayer("D:\\Data\\Topographical\\AucklandTest.tga", 1024, 1024, MAPTYPE_HEIGHT);
+	streetLayer = new MapLayer("D:\\Data\\Topographical\\OSM Images\\AucklandOtherScale.tga", 1024, 1024, MAPTYPE_ROADS);
 	//generate the network
 	int sTime = (int)time(NULL);
-	network = new RoadNetwork(layer);
+	network = new RoadNetwork(heightLayer, streetLayer);
 	int tTime = (int)time(NULL) - sTime;
 	printf("Generation time: %i\n", tTime);
 }

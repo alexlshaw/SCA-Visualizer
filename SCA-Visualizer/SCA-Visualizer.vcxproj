@@ -171,6 +171,7 @@
   <ItemGroup>
     <ClInclude Include="MapLayer.h" />
     <ClInclude Include="RoadNetwork.h" />
+    <ClInclude Include="Settings.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="Texture.h" />
     <ClInclude Include="Vertex.h" />

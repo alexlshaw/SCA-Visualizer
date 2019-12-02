@@ -6,12 +6,10 @@
 #include <vector>
 #include <chrono>
 #include "MapLayer.h"
+#include "Settings.h"
 #include "Vertex.h"
 
-static glm::vec4 roadCol = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
-static glm::vec4 apCol = glm::vec4(1.0f, 0.0f, 1.0f, 1.0f);
-static glm::vec4 connCol = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
-static int attractionPointCount = 6000;
+static unsigned int attractionPointCount = 6000;
 static float segmentLength = 8.0f;			//Generation time significantly increases as this value decreases
 static float killDistance = 4.0f;			//Dropping this below 5 increases generation time by orders of magnitude (though that might be to do with being < 0.5 * segment length - any segment that is exactly 0.5 * segment length away will generate a new segment passing through the point that ends up the same distance from the point (out of kill radius))
 static int startingSegmentCount = 8;
@@ -70,6 +68,7 @@ private:
 	std::vector<int> APIndices;
 	std::vector<AttractionPoint> attractionPoints;
 	MapLayer* walkability;
+	MapLayer* roadAccess;
 	void ConstructAPMesh();
 	void ConstructMesh();
 	void PickStartingSegments();
@@ -80,7 +79,7 @@ private:
 	void AddNewSegmentSet(std::deque<Segment*>* segmentsAddedInLastRound);
 public:
 	std::vector<glm::vec2> startingLocations;
-	RoadNetwork(MapLayer* map);
+	RoadNetwork(MapLayer* map, MapLayer* streets);
 	~RoadNetwork();
 	void SetInitialAttractionPoints();
 	void GenerateNetwork();

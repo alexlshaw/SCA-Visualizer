@@ -4,12 +4,11 @@
 #include "glad\glad.h"
 #include <algorithm>
 #include <vector>
+#include "Settings.h"
 #include "Vertex.h"
 
 class GraphEdge;
 class Corner;
-
-const static glm::vec4 vCol = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
 class Site
 {
