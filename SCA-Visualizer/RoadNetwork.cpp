@@ -12,6 +12,7 @@ RoadNetwork::RoadNetwork(MapLayer* map, MapLayer* streets)
 	walkability = map;
 	roadAccess = streets;
 	SetInitialAttractionPoints();
+	PickStartingSegments();
 	ConstructAPMesh();
 	GenerateNetwork();
 	ConstructMesh();
@@ -65,7 +66,7 @@ void RoadNetwork::GenerateClosenessNetwork(std::deque<Segment*>* candidateSegmen
 			//make sure we're not working with a 0-length vector
 			if (point.location != point.closest->end)
 			{
-				point.closest->influenceVectors.push_back(glm::normalize(point.location - point.closest->end));
+				point.closest->influenceVectors.push_back(glm::normalize(point.location - point.closest->end) * point.weightingFactor);
 			}
 		}
 	}
@@ -82,8 +83,7 @@ void RoadNetwork::GenerateNetwork()
 	int noProgressCount = 0;
 	std::deque<Segment*> segmentsAddedInLastRound;
 
-	//initialise network
-	PickStartingSegments();
+	//initialise network (we assume that PickStartingSegments() has been called already - since it's just generating our voronoi sites)
 	for (auto& seg : segments)
 	{
 		segmentsAddedInLastRound.push_back(seg);
@@ -97,7 +97,7 @@ void RoadNetwork::GenerateNetwork()
 		//remove any points where the network has colonised their space
 		KillPointsNearSegments();
 		//check all of the recently added segments and see if we want to attract them to one another
-		InGenerationConnection(&segmentsAddedInLastRound);
+		//InGenerationConnection(&segmentsAddedInLastRound);
 		//Add a new set of segments for this round
 		AddNewSegmentSet(&segmentsAddedInLastRound);
 		//move the newly created segments into the main collection
@@ -113,6 +113,7 @@ void RoadNetwork::GenerateNetwork()
 		remainingAttractionPointsAtLastIter = remainingAttractionPoints;
 	}
 	PrintSummaryStatistics();
+	PostGenerationConnection();
 }
 
 void RoadNetwork::AddNewSegmentSet(std::deque<Segment*>* segmentsAddedInLastRound)
@@ -257,7 +258,9 @@ void RoadNetwork::SetInitialAttractionPoints()
 			x = rand() % xRange;
 			y = rand() % yRange;
 		}
-		attractionPoints.push_back(AttractionPoint(glm::vec2((float)x, (float)y)));
+		AttractionPoint p(glm::vec2((float)x, (float)y));
+		p.weightingFactor = roadAccess->RoadScaleFactorFromColor(roadAccess->ColorLookup(x, y));
+		attractionPoints.push_back(p);
 	}
 	printf("%i points generated\n", attractionPoints.size());
 }
@@ -267,9 +270,9 @@ void RoadNetwork::ConstructAPMesh()
 	if (attractionPoints.size() > 0)
 	{
 		int i = 0;
-		for (auto iter = attractionPoints.begin(); iter != attractionPoints.end(); ++iter)
+		for (auto& ap : attractionPoints)
 		{
-			glm::vec2 currentPoint = (*iter).location;
+			glm::vec2 currentPoint = ap.location;
 			Vertex v0 = Vertex(glm::vec4(currentPoint.x, currentPoint.y, 0.0f, 1.0f), apCol);
 			Vertex v1 = Vertex(glm::vec4(currentPoint.x + 1.0f, currentPoint.y, 0.0f, 1.0f), apCol);
 			Vertex v2 = Vertex(glm::vec4(currentPoint.x + 1.0f, currentPoint.y + 1.0f, 0.0f, 1.0f), apCol);
@@ -285,6 +288,29 @@ void RoadNetwork::ConstructAPMesh()
 			APIndices.push_back(i * 4 + 2);
 			APIndices.push_back(i * 4 + 3);
 			i++;
+		}
+		if (segments.size() > 0)
+		{
+			for (auto& seg : segments)
+			{
+				printf("Adding segment tri\n");
+				glm::vec2 currentPoint = seg->end;
+				Vertex v0 = Vertex(glm::vec4(currentPoint.x - 2.0f, currentPoint.y - 2.0f, 0.0f, 1.0f), siteCol);
+				Vertex v1 = Vertex(glm::vec4(currentPoint.x + 2.0f, currentPoint.y - 2.0f, 0.0f, 1.0f), siteCol);
+				Vertex v2 = Vertex(glm::vec4(currentPoint.x + 2.0f, currentPoint.y + 2.0f, 0.0f, 1.0f), siteCol);
+				Vertex v3 = Vertex(glm::vec4(currentPoint.x - 2.0f, currentPoint.y + 2.0f, 0.0f, 1.0f), siteCol);
+				APVertices.push_back(v0);
+				APVertices.push_back(v1);
+				APVertices.push_back(v2);
+				APVertices.push_back(v3);
+				APIndices.push_back(i * 4);
+				APIndices.push_back(i * 4 + 1);
+				APIndices.push_back(i * 4 + 2);
+				APIndices.push_back(i * 4);
+				APIndices.push_back(i * 4 + 2);
+				APIndices.push_back(i * 4 + 3);
+				i++;
+			}
 		}
 		APindexCount = APIndices.size();
 		glGenVertexArrays(1, &avao);

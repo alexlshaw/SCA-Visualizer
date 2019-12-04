@@ -9,12 +9,12 @@
 #include "Settings.h"
 #include "Vertex.h"
 
-static unsigned int attractionPointCount = 6000;
+static unsigned int attractionPointCount = 10000;
 static float segmentLength = 8.0f;			//Generation time significantly increases as this value decreases
 static float killDistance = 4.0f;			//Dropping this below 5 increases generation time by orders of magnitude (though that might be to do with being < 0.5 * segment length - any segment that is exactly 0.5 * segment length away will generate a new segment passing through the point that ends up the same distance from the point (out of kill radius))
 static int startingSegmentCount = 8;
 static float interSegmentAttractionThreshold = 50.0f;
-static float segmentConnectionThreshold = 10.0f;
+static float segmentConnectionThreshold = 20.0f;
 
 class Segment
 {
@@ -37,10 +37,12 @@ private:
 public:
 	glm::vec2 location;
 	Segment* closest;
+	float weightingFactor;
 	AttractionPoint(glm::vec2 loc)
 	{
 		location = loc;
 		closest = nullptr;
+		weightingFactor = 1.0f;
 	}
 };
 

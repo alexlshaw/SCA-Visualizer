@@ -15,6 +15,7 @@ const static float ROAD_MAJOR = 0.4f;
 const static float ROAD_MINOR = 0.3f;
 const static float ROAD_DRIVEWAY = 0.2f;
 const static float ROAD_NONE = 0.1f;
+const static float IMPASSIBLE = 0.0f;
 
 
 const static int MAPTYPE_HEIGHT = 0;
@@ -32,8 +33,7 @@ private:
 	std::vector<GLubyte> vPixels;
 	int mapWidth, mapHeight;
 	int mapType;
-	glm::vec4 ColorLookup(int x, int y);
-	float RoadScaleFactorFromColor(glm::vec4 color);
+	
 public:
 	MapLayer(const char* path, int width, int height, int type);
 	~MapLayer();
@@ -42,4 +42,6 @@ public:
 	float MaxmimalSlope(int x, int y);
 	float HeightLookup(int x, int y);
 	float AccessibilityBetweenPoints(glm::vec2 p1, glm::vec2 p2);	//Returns accessibility value [0...1] ranging from non-accessible to easily accessible
+	glm::vec4 ColorLookup(int x, int y);
+	float RoadScaleFactorFromColor(glm::vec4 color);
 };

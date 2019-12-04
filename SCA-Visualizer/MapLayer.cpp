@@ -131,17 +131,21 @@ float MapLayer::RoadScaleFactorFromColor(glm::vec4 color)
 	{
 		return ROAD_MOTORWAY;
 	}
-	else if (color.g > 100 && color.g > color.r&& color.g > color.b)
+	else if (color.g > 100 && color.g > color.r && color.g > color.b)
 	{
 		return ROAD_MAJOR;
 	}
-	else if (color.r > 200 && color.r > color.g&& color.r > color.b)
+	else if (color.r > 200 && color.g < 100 && color.b < 100)
 	{
 		return ROAD_MINOR;
 	}
 	else if (color.b > 200 && color.b > color.g && color.b > color.r)
 	{
 		return ROAD_DRIVEWAY;
+	}
+	else if (color.r > 190 && color.b > 140 && color.g > 160 && color.r < 210 && color.b < 160 && color.g < 190)
+	{
+		return IMPASSIBLE;
 	}
 	else
 	{
