@@ -253,7 +253,8 @@ void RoadNetwork::SetInitialAttractionPoints()
 	{
 		x = rand() % xRange;
 		y = rand() % yRange;
-		while (!walkability->Walkable(x, y))
+		//while (!walkability->Walkable(x, y))
+		while(roadAccess->RoadScaleFactorFromColor(roadAccess->ColorLookup(x, y)) == IMPASSIBLE)
 		{
 			x = rand() % xRange;
 			y = rand() % yRange;
@@ -293,7 +294,6 @@ void RoadNetwork::ConstructAPMesh()
 		{
 			for (auto& seg : segments)
 			{
-				printf("Adding segment tri\n");
 				glm::vec2 currentPoint = seg->end;
 				Vertex v0 = Vertex(glm::vec4(currentPoint.x - 2.0f, currentPoint.y - 2.0f, 0.0f, 1.0f), siteCol);
 				Vertex v1 = Vertex(glm::vec4(currentPoint.x + 2.0f, currentPoint.y - 2.0f, 0.0f, 1.0f), siteCol);

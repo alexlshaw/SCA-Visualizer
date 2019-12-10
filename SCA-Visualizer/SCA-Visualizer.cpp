@@ -207,7 +207,8 @@ void generateData()
 {
 	//load the map data
 	heightLayer = new MapLayer("D:\\Data\\Topographical\\AucklandTest.tga", 1024, 1024, MAPTYPE_HEIGHT);
-	streetLayer = new MapLayer("D:\\Data\\Topographical\\OSM Images\\AucklandOtherScale.tga", 1024, 1024, MAPTYPE_ROADS);
+	streetLayer = new MapLayer("D:\\Data\\Topographical\\OSM Images\\AucklandOSMScale2.tga", 1024, 1024, MAPTYPE_ROADS);
+	//streetLayer = new MapLayer("D:\\Data\\Topographical\\OSM Images\\AucklandOtherScale.tga", 1024, 1024, MAPTYPE_ROADS);
 	//generate the network
 	int sTime = (int)time(NULL);
 	network = new RoadNetwork(heightLayer, streetLayer);
